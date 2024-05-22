@@ -32,63 +32,56 @@ class ProductFilter(Resource):
         sort = request.args.get('_sort')
         brand = request.args.get('brand')
         total_itemss = products.count_documents({})
-
-        # Ensure per_page is at least 1 to avoid division by zero
         per_page = max(per_page, 1)
-
-        # Calculate the skip value based on the page number and items per page
         skip = (page - 1) * per_page
-
-        # Start with unfiltered products
         filtered_products = products
-
-
-        # Filter by category and brand if provided
+        total_itemsss = 0
         if categories and brand:
             categories = categories.split(',')
             brand = brand.split(",")
-            filtered_products = products.find({"category": {"$in": categories}, "brand": {"$in": brand}})
-        # Filter by category if provided
+            filter_criteria = {"category": {"$in": categories}, "brand": {"$in": brand}}
+            filtered_products = products.find(filter_criteria)
+            total_itemsss += products.count_documents(filter_criteria)
+
         elif categories and not brand:
             categories = categories.split(',')
-            filtered_products = filtered_products.find({"category": {"$in": categories}})
-        # Filter by brand if provided
+            filter_criteria = {"category": {"$in": categories}}
+            filtered_products = products.find(filter_criteria)
+            total_itemsss += products.count_documents(filter_criteria)
+
         elif brand and not categories:
             brand = brand.split(",")
-            filtered_products = filtered_products.find({"brand": {"$in": brand}})
+            filter_criteria = {"brand": {"$in": brand}}
+            filtered_products = products.find(filter_criteria)
+            total_itemsss += products.count_documents(filter_criteria)
         else:
+            total_itemsss = total_itemss
             filtered_products = products.find({})
 
-        # Sort by price or rating if provided
         if sort:
             sort_key = 'price' if sort == "price" else 'rating'
             filtered_products = filtered_products.sort(sort_key, 1)
-
-        # Skip the first skip products and limit the result to per_page products
         filtered_products = filtered_products.limit(per_page).skip(skip)
-
-
-        # Convert MongoDB cursor to a list of dictionaries
         products_list = list(filtered_products)
-
-        # Convert ObjectId to string in the result
         for product in products_list:
             product['_id'] = str(product['_id'])
 
         # Pagination metadata
-        total_items = len(products_list)  # Total number of items without filters
-        total_pages = max(1, round(total_items / per_page))  # Ensure at least 1 page
-        current_page = min(page, total_pages)  # Ensure current page does not exceed total pages
-        next_page = min(current_page + 1, total_pages)
+        total_items = len(products_list)
+        total_pages = max(1, round(total_items / per_page))
+        current_page = min(page, total_pages)
+        next_page = skip+2
         prev_page = max(current_page - 1, 1)
-        print(total_itemss)
-        # Return JSON response with filtered, sorted, and limited products along with pagination metadata
+        if len(products_list)<per_page:
+            next_page = skip +1
+
         return jsonify({
             "data": products_list,
             "first": 1,
             "items": len(products_list),
             "last": round(total_itemss/per_page),
-            "next": skip+2,
+            "total_items": total_itemsss,
+            "next": next_page,
             "pages": round(total_itemss/per_page),
             "prev": skip
         })
