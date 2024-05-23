@@ -5,15 +5,14 @@ from flask_cors import CORS  # Import CORS
 from bson import ObjectId
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-# Your existing code
 api = Api(app)
 app.config['MONGO_URI'] = 'mongodb://localhost:27017/Ecommerce'
 mongo = PyMongo(app)
 products = mongo.db.product
-
-  # Import ObjectId from bson module
+brands = mongo.db.brands
+categories = mongo.db.categories
 
 class Product(Resource):
     def get(self, product_id):
@@ -24,6 +23,16 @@ class Product(Resource):
             return jsonify(product)
         else:
             return {'message': 'Product not found'}, 404
+
+    def post(self):
+        try:
+            # Extract product information from the request JSON
+            product_info = request.json
+            new_product = products.insert_one(product_info)
+
+            return {'message': 'Product added successfully', 'product_id': str(new_product.inserted_id)}, 201
+        except Exception as e:
+            return {'error': str(e)}, 500  # Return an error response with status code 500
 class ProductFilter(Resource):
     def get(self):
         page = int(request.args.get('_page', 1))
@@ -86,9 +95,31 @@ class ProductFilter(Resource):
             "prev": skip
         })
 
+class Brands(Resource):
+    def get(self):
+        brand = brands.find({})
+        serialized_brands = []
+        for doc in brand:
+            doc['_id'] = str(doc['_id'])  # Convert ObjectId to string
+            serialized_brands.append(doc)
+        return jsonify(serialized_brands)
+class Categories(Resource):
+    def get(self):
+        brand = categories.find({})
+        serialized_brands = []
+        for doc in brand:
+            doc['_id'] = str(doc['_id'])  # Convert ObjectId to string
+            serialized_brands.append(doc)
+        return jsonify(serialized_brands)
+
+
+
+
 
 api.add_resource(ProductFilter, '/productfilter')
-
 api.add_resource(Product, '/products/<string:product_id>')
+api.add_resource(Brands, '/brands')
+api.add_resource(Categories, '/categories')
+# api.add_resource(ProductFilter, '/productfilter')
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
