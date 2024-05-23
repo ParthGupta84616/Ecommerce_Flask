@@ -3,6 +3,7 @@ from flask_restful import Api, Resource
 from flask_pymongo import PyMongo
 from flask_cors import CORS  # Import CORS
 from bson import ObjectId
+from flask_restful.representations import json
 
 app = Flask(__name__)
 CORS(app)
@@ -26,13 +27,24 @@ class Product(Resource):
 
     def post(self):
         try:
-            # Extract product information from the request JSON
             product_info = request.json
             new_product = products.insert_one(product_info)
 
-            return {'message': 'Product added successfully', 'product_id': str(new_product.inserted_id)}, 201
+            # Retrieve the inserted product using its ID
+            inserted_id = new_product.inserted_id
+            inserted_product = products.find_one({'_id': inserted_id})
+
+            # Check if the product was successfully inserted
+            if inserted_product:
+                # Convert ObjectId to string for JSON serialization
+                inserted_product['_id'] = str(inserted_product['_id'])
+
+                # Return the inserted product data as is
+                return inserted_product, 201
+            else:
+                return '', 500  # Return empty response with status code 500
         except Exception as e:
-            return {'error': str(e)}, 500  # Return an error response with status code 500
+            return '', 500
 class ProductFilter(Resource):
     def get(self):
         page = int(request.args.get('_page', 1))
@@ -117,7 +129,7 @@ class Categories(Resource):
 
 
 api.add_resource(ProductFilter, '/productfilter')
-api.add_resource(Product, '/products/<string:product_id>')
+api.add_resource(Product, '/products/<string:product_id>',"/products/")
 api.add_resource(Brands, '/brands')
 api.add_resource(Categories, '/categories')
 # api.add_resource(ProductFilter, '/productfilter')
