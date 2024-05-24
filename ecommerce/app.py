@@ -2,8 +2,8 @@ from flask import Flask, jsonify , request
 from flask_restful import Api, Resource
 from flask_pymongo import PyMongo
 from flask_cors import CORS  # Import CORS
+from verify import send_email
 from bson import ObjectId
-from flask_restful.representations import json
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +14,7 @@ mongo = PyMongo(app)
 products = mongo.db.product
 brands = mongo.db.brands
 categories = mongo.db.categories
+users = mongo.db.users
 
 class Product(Resource):
     def get(self, product_id):
@@ -45,6 +46,13 @@ class Product(Resource):
                 return '', 500  # Return empty response with status code 500
         except Exception as e:
             return '', 500
+
+    def delete(self,product_id):
+        result = products.delete_one({'id': product_id})
+        if result.deleted_count == 1:
+            return {"message": f'Successfully deleted product with id {product_id}'}
+        else:
+            return {"message": f'Product with id {product_id} not found'}, 404
 class ProductFilter(Resource):
     def get(self):
         page = int(request.args.get('_page', 1))
@@ -106,7 +114,6 @@ class ProductFilter(Resource):
             "pages": round(total_itemss/per_page),
             "prev": skip
         })
-
 class Brands(Resource):
     def get(self):
         brand = brands.find({})
@@ -123,15 +130,43 @@ class Categories(Resource):
             doc['_id'] = str(doc['_id'])  # Convert ObjectId to string
             serialized_brands.append(doc)
         return jsonify(serialized_brands)
+class User(Resource):
+    def post(self):
+        user_data = request.get_json()
 
+        if 'email' in user_data and 'password' in user_data:
+            already_user = users.find_one({"email": user_data['email']})
+            if already_user:
+                return {"message": "Already a user"}, 400
+            result = users.insert_one(user_data)
 
-
-
+            if result.inserted_id:
+                user_data['_id'] = str(user_data['_id'])
+                return {"user": user_data}, 201
+            else:
+                return {"message": "Failed to create user"}, 500
+        else:
+            send_email(user_data["email"], "Password Reset Link", "password change karle bhi")
+            return {"message": "Kam 25"}, 200
+    def get(self):
+        email = request.args.get("email")
+        # Find the user with the provided email
+        current_user = users.find_one({"email": email})
+        if current_user:
+            current_user['_id'] = str(current_user['_id'])
+            return {"data": current_user}, 200  # Return user data with HTTP status 200 for OK
+        elif current_user:
+            return {"message": "Invalid credentials"}, 401  # Return unauthorized HTTP status if password doesn't match
+        else:
+            return {"message": "User not found"}, 404
 
 api.add_resource(ProductFilter, '/productfilter')
 api.add_resource(Product, '/products/<string:product_id>',"/products/")
 api.add_resource(Brands, '/brands')
 api.add_resource(Categories, '/categories')
-# api.add_resource(ProductFilter, '/productfilter')
+api.add_resource(User, '/users',"/users/")
+
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
