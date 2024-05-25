@@ -15,6 +15,7 @@ products = mongo.db.product
 brands = mongo.db.brands
 categories = mongo.db.categories
 users = mongo.db.users
+cart = mongo.db.cart
 
 class Product(Resource):
     def get(self, product_id):
@@ -160,11 +161,101 @@ class User(Resource):
         else:
             return {"message": "User not found"}, 404
 
+class Cart(Resource):
+    def post(self):
+        data = request.get_json()
+
+        # Check if userId and id are present in the request data
+        if "userId" not in data or "id" not in data:
+            return {"error": "Missing userId or id in request data"}, 400
+
+        try:
+            # Check if the document exists
+            result = cart.find_one({"userId": data["userId"], "id": data["id"]})
+            if result:
+                # Increment the quantity field by 1
+                cart.update_one({"userId": data["userId"], "id": data["id"]}, {"$inc": {"quantity": 1}})
+                # Retrieve the updated document
+                updated_result = cart.find_one({"userId": data["userId"], "id": data["id"]})
+                # Convert ObjectId to string
+                updated_result['_id'] = str(updated_result['_id'])
+                return {"data": updated_result}, 200
+            else:
+                inserted_id = cart.insert_one(data).inserted_id
+                new_document = cart.find_one({"_id": inserted_id})
+                new_document['_id'] = str(new_document['_id'])
+                return {"data": new_document}, 201
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def get(self):
+        userId = request.args.get("userId")
+
+        if not userId:
+            return {"error": "Missing userId in request parameters"}, 400
+
+        try:
+            # Find all documents with the specified userId, sorted by the 'id' field
+            results = cart.find({"userId": userId}).sort("id")
+
+            # Convert the results to a list and ObjectId to string
+            documents = []
+            for document in results:
+                document['_id'] = str(document['_id'])
+                documents.append(document)
+
+            return documents, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def delete(self):
+        item = request.get_json()
+        itemId = item["itemId"]
+        user = item["user"]
+        if not itemId or not user:
+            return {"error": "Missing itemId or user in request parameters"}, 400
+
+        try:
+            # Find and delete the object using an AND operation
+            result = cart.delete_one({"id": itemId, "userId": user})
+
+            if result.deleted_count > 0:
+                return {"message": "Successfully deleted"}, 200
+            else:
+                return {"message": "Item not found"}, 404
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def patch(self):
+        details = request.get_json()
+
+        if "id" not in details or "addresses" not in details:
+            return {"error": "Missing id or addresses in request data"}, 400
+
+        try:
+            # Find the document by id in the user collection
+            user_document = users.find_one({"id": details["id"]})
+
+            if user_document:
+                users.update_one({"id": details["id"]}, {"$set": {"addresses": details["addresses"]}})
+                # Retrieve the updated document
+                updated_document = users.find_one({"id": details["id"]})
+                # Convert ObjectId to string
+                updated_document['_id'] = str(updated_document['_id'])
+                return {"data": updated_document}, 200
+            else:
+                return {"error": "User not found"}, 404
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+
 api.add_resource(ProductFilter, '/productfilter')
 api.add_resource(Product, '/products/<string:product_id>',"/products/")
 api.add_resource(Brands, '/brands')
 api.add_resource(Categories, '/categories')
 api.add_resource(User, '/users',"/users/")
+api.add_resource(Cart,"/cart")
+
 
 
 
