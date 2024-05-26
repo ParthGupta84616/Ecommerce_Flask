@@ -16,6 +16,7 @@ brands = mongo.db.brands
 categories = mongo.db.categories
 users = mongo.db.users
 cart = mongo.db.cart
+orders = mongo.db.orders
 
 class Product(Resource):
     def get(self, product_id):
@@ -160,7 +161,6 @@ class User(Resource):
             return {"message": "Invalid credentials"}, 401  # Return unauthorized HTTP status if password doesn't match
         else:
             return {"message": "User not found"}, 404
-
 class Cart(Resource):
     def post(self):
         data = request.get_json()
@@ -247,7 +247,98 @@ class Cart(Resource):
                 return {"error": "User not found"}, 404
         except Exception as e:
             return {"error": str(e)}, 500
+class Orders(Resource):
+    def post(self):
+        order_data = request.get_json()
+        try:
+            insert_result = orders.insert_one(order_data)
+            created_order = orders.find_one({"_id": insert_result.inserted_id})
+            if created_order:
+                created_order['_id'] = str(created_order['_id'])
+                return created_order, 201
+            else:
+                return {"message": "Error finding the created order"}, 500
+        except Exception as e:
+            return {"message": str(e)}, 500
 
+    # http://127.0.0.1:8080/order?orderId=6cbebdd5-6568-4512-b22d-2bcac49a514f
+    def get(self):
+        orderId = request.args.get("orderId")
+        userId = request.args.get("userId")
+
+        if orderId:
+            if not orderId:
+                return {"message": "Missing orderId parameter"}, 400
+
+            try:
+                # Find the order by orderId
+                requiredOrder = orders.find_one({"id": orderId})
+
+                if requiredOrder:
+                    # Convert the ObjectId to a string for JSON serialization
+                    requiredOrder["_id"] = str(requiredOrder["_id"])
+                    return requiredOrder, 200
+                else:
+                    return {"message": "No Order Found"}, 404
+            except Exception as e:
+                return {"message": str(e)}, 500
+        elif userId:
+            if not userId:
+                return {"message": "Missing userId parameter"}, 400
+
+            try:
+                # Find all orders for the specified user ID
+                orders_list = list(orders.find({"user.id": userId}))
+
+                if orders_list:
+                    # Convert the ObjectId to a string for JSON serialization
+                    for order in orders_list:
+                        order["_id"] = str(order["_id"])
+                    return orders_list, 200
+                else:
+                    return {"message": "No Orders Found"}, 404
+            except Exception as e:
+                return {"message": str(e)}, 500
+        else:
+            try:
+                orders_list = list(orders.find({}))
+                for order in orders_list:
+                    order["_id"] = str(order["_id"])
+
+                return orders_list, 200
+            except Exception as e:
+                return {"message": str(e)}, 500
+
+    def patch(self):
+        data = request.get_json()
+
+        # Check if both "id" and "status" are present in the data
+        if "id" not in data or "status" not in data:
+            return {"message": "Missing id or status"}, 400
+
+        try:
+            # Find the order to update
+            toupdate = orders.find_one({"id": data["id"]})
+
+            if not toupdate:
+                return {"message": "Order not found"}, 404
+
+            # Update the order's status
+            update_result = orders.update_one(
+                {"id": data["id"]},
+                {"$set": {"status": data["status"]}}
+            )
+
+            if update_result.modified_count > 0:
+                # Find the updated order to return it
+                updated_order = orders.find_one({"id": data["id"]})
+                updated_order["_id"] = str(updated_order["_id"])
+                return {"data": updated_order}, 200
+            else:
+                return {"message": "No changes made to the order"}, 304
+
+        except Exception as e:
+            return {"message": str(e)}, 500
 
 api.add_resource(ProductFilter, '/productfilter')
 api.add_resource(Product, '/products/<string:product_id>',"/products/")
@@ -255,8 +346,7 @@ api.add_resource(Brands, '/brands')
 api.add_resource(Categories, '/categories')
 api.add_resource(User, '/users',"/users/")
 api.add_resource(Cart,"/cart")
-
-
+api.add_resource(Orders , "/order")
 
 
 if __name__ == '__main__':
