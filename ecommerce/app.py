@@ -2,11 +2,16 @@ from flask import Flask, jsonify , request
 from flask_restful import Api, Resource
 from flask_pymongo import PyMongo
 from flask_cors import CORS  # Import CORS
+from flask_jwt_extended import JWTManager, create_access_token
+from datetime import timedelta
 from verify import send_email
 from bson import ObjectId
 
 app = Flask(__name__)
 CORS(app)
+app.config['JWT_SECRET_KEY'] = '#9G8G8LLVJ@pg'  # Replace with your JWT secret key
+jwt = JWTManager(app)
+
 
 api = Api(app)
 app.config['MONGO_URI'] = 'mongodb://localhost:27017/Ecommerce'
@@ -133,34 +138,25 @@ class Categories(Resource):
             serialized_brands.append(doc)
         return jsonify(serialized_brands)
 class User(Resource):
-    def post(self):
-        user_data = request.get_json()
-
-        if 'email' in user_data and 'password' in user_data:
-            already_user = users.find_one({"email": user_data['email']})
-            if already_user:
-                return {"message": "Already a user"}, 400
-            result = users.insert_one(user_data)
-
-            if result.inserted_id:
-                user_data['_id'] = str(user_data['_id'])
-                return {"user": user_data}, 201
-            else:
-                return {"message": "Failed to create user"}, 500
-        else:
-            send_email(user_data["email"], "Password Reset Link", "password change karle bhi")
-            return {"message": "Kam 25"}, 200
     def get(self):
-        email = request.args.get("email")
-        # Find the user with the provided email
-        current_user = users.find_one({"email": email})
-        if current_user:
-            current_user['_id'] = str(current_user['_id'])
-            return {"data": current_user}, 200  # Return user data with HTTP status 200 for OK
-        elif current_user:
-            return {"message": "Invalid credentials"}, 401  # Return unauthorized HTTP status if password doesn't match
-        else:
-            return {"message": "User not found"}, 404
+        email = request.args.get('email')
+        password = request.args.get('password')
+
+        user = users.find_one({"email": email})
+        if user and user['password'] == password:
+            user["_id"] = str(user["_id"])  
+            access_token = create_access_token(
+                identity={"email": email,"password": password},
+                expires_delta=timedelta(hours=24)
+            )
+            response_data = {
+                "access_token": access_token,
+                "user": user
+            }
+            return jsonify(response_data)
+        return {"msg": "Invalid credentials"}, 401
+
+
 class Cart(Resource):
     def post(self):
         data = request.get_json()
