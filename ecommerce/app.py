@@ -6,7 +6,6 @@ from flask_jwt_extended import JWTManager, create_access_token
 from datetime import timedelta
 import os
 from verify import send_email
-from bson import ObjectId
 
 app = Flask(__name__)
 CORS(app)

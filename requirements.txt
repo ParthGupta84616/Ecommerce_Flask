@@ -21,4 +21,9 @@ aniso8601~=9.0.1
 cffi~=1.16.0
 six~=1.16.0
 PyJWT~=2.8.0
-Gunicorn
+Flask==2.1.0
+Flask-RESTful==0.3.9
+Flask-PyMongo==2.3.0
+Flask-Cors==3.1.1
+Flask-JWT-Extended==4.3.0
+pymongo==3.12.0
