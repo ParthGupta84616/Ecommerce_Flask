@@ -26,6 +26,10 @@ cart = mongo.db.cart
 orders = mongo.db.orders
 api = Api(app)
 
+@app.route('/')
+def home():
+    return "Hello, Flask!"
+
 class Product(Resource):
     def get(self, product_id):
         product = products.find_one({'id': product_id})
