@@ -4,24 +4,29 @@ from flask_pymongo import PyMongo
 from flask_cors import CORS  # Import CORS
 from flask_jwt_extended import JWTManager, create_access_token
 from datetime import timedelta
+import os
 from verify import send_email
 from bson import ObjectId
 
 app = Flask(__name__)
 CORS(app)
-app.config['JWT_SECRET_KEY'] = '#9G8G8LLVJ@pg'  # Replace with your JWT secret key
+
+# JWT Configuration
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', '#9G8G8LLVJ@pg')  # Default value for development
 jwt = JWTManager(app)
 
-
-api = Api(app)
-app.config['MONGO_URI'] = 'mongodb://localhost:27017/Ecommerce'
+# MongoDB Atlas Configuration
+app.config['MONGO_URI'] = os.getenv('MONGO_URI', 'mongodb+srv://parthgupta221092:9G8G8LLVJ@ecommerce-cluster.wjmddqr.mongodb.net/Ecommerce?retryWrites=true&w=majority')
 mongo = PyMongo(app)
+
+# Define collections in the Ecommerce database
 products = mongo.db.product
 brands = mongo.db.brands
 categories = mongo.db.categories
 users = mongo.db.users
 cart = mongo.db.cart
 orders = mongo.db.orders
+api = Api(app)
 
 class Product(Resource):
     def get(self, product_id):
@@ -138,6 +143,21 @@ class Categories(Resource):
             serialized_brands.append(doc)
         return jsonify(serialized_brands)
 class User(Resource):
+    def post(self):
+        user_data = request.get_json()
+        if 'email' in user_data and 'password' in user_data:
+            already_user = users.find_one({"email": user_data['email']})
+            if already_user:
+                return {"message": "Already a user"}, 400
+            result = users.insert_one(user_data)
+            if result.inserted_id:
+                user_data['_id'] = str(user_data['_id'])
+                return {"user": user_data}, 201
+            else:
+                return {"message": "Failed to create user"}, 500
+        else:
+            send_email(user_data["email"], "Password Reset Link", "password change karle bhi")
+            return {"message": "Kam 25"}, 200
     def get(self):
         email = request.args.get('email')
         password = request.args.get('password')
@@ -147,7 +167,7 @@ class User(Resource):
             user["_id"] = str(user["_id"])  
             access_token = create_access_token(
                 identity={"email": email,"password": password},
-                expires_delta=timedelta(hours=24)
+                expires_delta=timedelta(hours=1)
             )
             response_data = {
                 "access_token": access_token,
