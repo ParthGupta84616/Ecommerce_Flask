@@ -21,3 +21,4 @@ aniso8601~=9.0.1
 cffi~=1.16.0
 six~=1.16.0
 PyJWT~=2.8.0
+gunicorn==22.0.0
