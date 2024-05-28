@@ -5,7 +5,6 @@ from flask_cors import CORS  # Import CORS
 from flask_jwt_extended import JWTManager, create_access_token
 from datetime import timedelta
 import os
-from verify import send_email
 
 app = Flask(__name__)
 CORS(app)
@@ -155,7 +154,6 @@ class User(Resource):
             else:
                 return {"message": "Failed to create user"}, 500
         else:
-            send_email(user_data["email"], "Password Reset Link", "password change karle bhi")
             return {"message": "Kam 25"}, 200
     def get(self):
         email = request.args.get('email')
