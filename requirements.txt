@@ -1,7 +1,7 @@
 dnspython~=2.4.2
 trio~=0.25.0
 idna~=3.6
-cryptography~=441.0.4
+cryptography==3.4.8
 pip~=23.3
 attrs~=23.2.0
 wheel~=0.41.2
