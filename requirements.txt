@@ -52,3 +52,4 @@ trove-classifiers==2024.5.22
 urllib3==2.2.1
 virtualenv==20.26.2
 Werkzeug==3.0.3
+uvicorn==0.30.0
