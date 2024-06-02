@@ -26,9 +26,28 @@ cart = mongo.db.cart
 orders = mongo.db.orders
 api = Api(app)
 
+
 @app.route('/')
 def home():
     return "Hello, Flask!"
+
+
+@app.route('/delele200prodycs', methods=['DELETE'])
+def delete_last_2000():
+    try:
+        # Retrieve the last 2000 documents by sorting in descending order by '_id'
+        documents = products.find().sort('_id', -1).limit(200)
+
+        # Extract the '_id' of these documents
+        ids_to_delete = [doc['_id'] for doc in documents]
+
+        # Delete the documents by their '_id'
+        result = products.delete_many({'_id': {'$in': ids_to_delete}})
+
+        # Return the number of deleted documents
+        return jsonify({'deleted_count': result.deleted_count}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 class Product(Resource):
     def get(self, product_id):
@@ -176,7 +195,6 @@ class User(Resource):
             }
             return jsonify(response_data)
         return {"msg": "Invalid credentials"}, 401
-
 
 class Cart(Resource):
     def post(self):
@@ -357,14 +375,54 @@ class Orders(Resource):
         except Exception as e:
             return {"message": str(e)}, 500
 
+class Search(Resource):
+    def get(self, query):
+        # query = request.args.get('title')
+        if not query:
+            return jsonify({"error": "No search query provided"}), 400
+
+        # Log the query
+        print(query)
+        results = products.find({
+            "$or": [
+                {"title": {"$regex": query, "$options": "i"}},
+                {"category": {"$regex": query, "$options": "i"}},
+                {"brand": {"$regex": query, "$options": "i"}}
+            ]
+        })
+        results = list(results)
+
+        # Convert MongoDB documents to JSON-serializable format
+        for product in results:
+            product["_id"] = str(product["_id"])
+
+        categories = set()
+        brands = set()
+
+        for product in results:
+            if "category" in product:
+                categories.add(product["category"])
+            if "brand" in product:
+                brands.add(product["brand"])
+
+        categories = list(categories)
+        brands = list(brands)
+
+        return {
+            "products": results,
+            "brands": brands,
+            "category": categories
+        }
+
+
 api.add_resource(ProductFilter, '/productfilter')
 api.add_resource(Product, '/products/<string:product_id>',"/products/")
 api.add_resource(Brands, '/brands')
 api.add_resource(Categories, '/categories')
 api.add_resource(User, '/users',"/users/")
 api.add_resource(Cart,"/cart")
+api.add_resource(Search, "/search/<string:query>")
 api.add_resource(Orders , "/order")
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
